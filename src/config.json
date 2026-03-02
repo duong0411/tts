@@ -1,4 +1,1 @@
-{
-  "enableTransliteration": true,
-  "debug": false
-}
+{"enableTransliteration":true,"debug":true,"UnlimitedRomanNumerals":false}

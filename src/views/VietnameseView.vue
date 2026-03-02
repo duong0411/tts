@@ -13,6 +13,8 @@ import AudioChunk from '../components/AudioChunk.vue';
 import ModelSelector from '../components/ModelSelector.vue';
 import DemoTable from '../components/DemoTable.vue';
 import { fetchAvailableModels } from '../utils/model-detector.js';
+import { addEntry } from '../utils/history-store.js';
+import { DEFAULT_MODEL } from '../config.js';
 
 // State variables
 const text = ref(
@@ -155,6 +157,15 @@ const fetchModels = async () => {
         voices.value = null;
       }
     }
+
+    // Auto-load default model when entering page
+    if (selectedModel.value === "None" && models.length > 0) {
+      const defaultModel = (DEFAULT_MODEL.vi && models.includes(DEFAULT_MODEL.vi))
+        ? DEFAULT_MODEL.vi
+        : models[0];
+      selectedModel.value = defaultModel;
+      restartWorker(defaultModel);
+    }
   } catch (err) {
     console.error('Failed to fetch models:', err);
     error.value = `Failed to load models: ${err.message}`;
@@ -213,6 +224,16 @@ const onMessageReceived = ({ data }) => {
     case "complete":
       status.value = "ready";
       result.value = data.audio;
+      if (data.audio && lastGeneration.value && selectedModel.value) {
+        addEntry({
+          text: lastGeneration.value.text,
+          voice: lastGeneration.value.voice,
+          speed: lastGeneration.value.speed,
+          model: selectedModel.value,
+          lang: 'vi',
+          audio: data.audio,
+        }).catch((err) => console.error('History save failed:', err));
+      }
       break;
     case "preview":
       if (data.audio) {

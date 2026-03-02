@@ -12,7 +12,8 @@ import SpeedControl from '../components/SpeedControl.vue';
 import AudioChunk from '../components/AudioChunk.vue';
 import ModelSelector from '../components/ModelSelector.vue';
 import VoiceSelector from '../components/VoiceSelector.vue';
-import { getModelsListUrl, DEFAULT_LANG_MODELS } from '../config.js';
+import { getModelsListUrl, DEFAULT_LANG_MODELS, DEFAULT_MODEL } from '../config.js';
+import { addEntry } from '../utils/history-store.js';
 
 const props = defineProps({
   lang: {
@@ -173,6 +174,16 @@ const fetchModels = async () => {
     if (selectedModel.value && selectedModel.value !== "None" && !availableModels.value.includes(selectedModel.value)) {
       selectedModel.value = "None";
     }
+
+    // Auto-load default model when entering page
+    const models = availableModels.value;
+    if (selectedModel.value === "None" && models.length > 0) {
+      const defaultModel = (DEFAULT_MODEL[props.lang] && models.includes(DEFAULT_MODEL[props.lang]))
+        ? DEFAULT_MODEL[props.lang]
+        : models[0];
+      selectedModel.value = defaultModel;
+      restartWorker(defaultModel);
+    }
   } catch (err) {
     console.error('Failed to fetch models:', err);
     availableModels.value = DEFAULT_LANG_MODELS[props.lang] || [];
@@ -230,6 +241,16 @@ const onMessageReceived = ({ data }) => {
     case "complete":
       status.value = "ready";
       result.value = data.audio;
+      if (data.audio && lastGeneration.value && selectedModel.value) {
+        addEntry({
+          text: lastGeneration.value.text,
+          voice: lastGeneration.value.voice,
+          speed: lastGeneration.value.speed,
+          model: selectedModel.value,
+          lang: props.lang,
+          audio: data.audio,
+        }).catch((err) => console.error('History save failed:', err));
+      }
       break;
     case "preview":
       if (data.audio) {

@@ -2,6 +2,9 @@ import { processVietnameseText } from './vietnamese-processor.js';
 import { transliterateWord } from './transliterator.js';
 import { isVietnameseWord } from './vietnamese-detector.js';
 
+/** Words to skip in step 4.5 transliteration (e.g. MC = Master of Ceremonies, kept as-is). Case-insensitive. */
+const TRANSLITERATION_SKIP_WORDS = new Set(['mc']);
+
 // Cache for the acronym map
 let acronymMapCache = null;
 
@@ -223,6 +226,11 @@ function applyTransliteration(text, replacementMap, config = null) {
             continue;
         }
 
+        // Skip special words that should not be transliterated (e.g. MC = Master of Ceremonies)
+        if (TRANSLITERATION_SKIP_WORDS.has(wordLower)) {
+            continue;
+        }
+
         // Apply transliteration
         const transliterated = transliterateWord(word);
         transliteratedWords.push({ word, transliterated });
@@ -403,7 +411,7 @@ export async function processTextForTTS(text) {
     }
 
     // Then, process Vietnamese text (convert numbers, dates, times, etc.)
-    const vietnameseProcessedText = processVietnameseText(cleanedText);
+    const vietnameseProcessedText = processVietnameseText(cleanedText, config);
     if (isDebugEnabled(config)) {
         debugLog(config, 'Step 2: Vietnamese Processing', { 
             before: cleanedText, 

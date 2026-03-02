@@ -130,6 +130,66 @@ export default defineConfig({
             return;
           }
 
+          // Handle /api/asr/models - list ASR model folders (public/asr-model/)
+          if (url === '/asr/models' || url === '/asr/models/') {
+            try {
+              const asrModelDir = path.join(__dirname, 'public', 'asr-model');
+              if (!fs.existsSync(asrModelDir)) {
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ models: [] }));
+                return;
+              }
+              const entries = fs.readdirSync(asrModelDir, { withFileTypes: true });
+              const models = entries.filter((e) => e.isDirectory()).map((e) => e.name).sort();
+              res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+              res.end(JSON.stringify({ models }));
+            } catch (err) {
+              console.error('Error listing ASR models:', err);
+              res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+              res.end(JSON.stringify({ error: 'Failed to list ASR models', message: err.message }));
+            }
+            return;
+          }
+
+          // Handle /api/model/asr/[model]/[name] - serve ASR model file from public/asr-model/[model]/
+          const asrModelMatch = url.match(/^\/model\/asr\/([^/]+)\/([^/]+)\/?$/);
+          if (asrModelMatch) {
+            try {
+              const modelDir = path.join(__dirname, 'public', 'asr-model', asrModelMatch[1]);
+              const fileName = decodeURIComponent(asrModelMatch[2]);
+              const filePath = path.join(modelDir, fileName);
+              const resolvedPath = path.resolve(filePath);
+              const resolvedDir = path.resolve(modelDir);
+              if (!resolvedPath.startsWith(resolvedDir)) {
+                res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ error: 'Access denied' }));
+                return;
+              }
+              if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+                res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ error: 'Model file not found' }));
+                return;
+              }
+              let contentType = 'application/octet-stream';
+              if (fileName.endsWith('.json')) contentType = 'application/json';
+              if (fileName.endsWith('.js')) contentType = 'application/javascript';
+              const fileStats = fs.statSync(filePath);
+              const fileContent = fs.readFileSync(filePath);
+              res.writeHead(200, {
+                'Content-Type': contentType,
+                'Content-Length': fileStats.size.toString(),
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'public, max-age=31536000, immutable',
+              });
+              res.end(fileContent);
+            } catch (error) {
+              console.error('Error serving ASR model file:', error);
+              res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+              res.end(JSON.stringify({ error: 'Failed to serve model file', message: error.message }));
+            }
+            return;
+          }
+
           // If no match, pass through (for production/Cloudflare Pages Functions)
           next();
         });

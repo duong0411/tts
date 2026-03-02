@@ -25,12 +25,13 @@ dist-ssr
 *.sln
 *.sw?
 
-text_processor.py
-
-drive-download-20251225T073921Z-3-001/*
 
 dist/*
 .wrangler/*
 public/tts-model/*
 scripts/*
 bak/*
+upload-model-web/*
+.cursor/*
+scraps/*
+.cursorignore

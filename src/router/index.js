@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import VietnameseView from '../views/VietnameseView.vue';
 import LanguageView from '../views/LanguageView.vue';
+import ASRView from '../views/ASRView.vue';
 
 const routes = [
   {
@@ -22,6 +23,11 @@ const routes = [
     component: LanguageView,
     meta: { lang: 'id' },
     props: { lang: 'id' },
+  },
+  {
+    path: '/asr',
+    name: 'asr',
+    component: ASRView,
   },
 ];
 

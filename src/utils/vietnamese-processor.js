@@ -226,6 +226,83 @@ function convertCurrency(text) {
 }
 
 /**
+ * Convert numeric ranges and fractions followed by measurement units or currency.
+ *
+ * Examples:
+ *  - "1-10m"   -> "1 đến 10 m"
+ *  - "1/10m"   -> "1 phần 10 m"
+ *  - "1-10kg"  -> "1 đến 10 kg"
+ *  - "1/10kg"  -> "1 phần 10 kg"
+ *  - "1-10 đồng" -> "1 đến 10 đồng"
+ *  - "1/10 đồng" -> "1 phần 10 đồng"
+ *
+ * Numbers remain as digits here so later steps (currency, units, standalone numbers)
+ * can convert them to Vietnamese words.
+ */
+function convertRangesWithUnitsAndCurrency(text) {
+    if (!text || typeof text !== 'string') {
+        return text;
+    }
+
+    // Measurement units (duplicated from convertMeasurementUnits for range handling)
+    const measurementUnits = [
+        // Length units
+        'm', 'cm', 'mm', 'km', 'dm', 'hm', 'dam', 'inch',
+        // Weight units
+        'kg', 'g', 'mg', 't', 'tấn', 'yến', 'lạng',
+        // Volume units
+        'ml', 'l', 'lít',
+        // Area units
+        'm²', 'm2', 'km²', 'km2', 'ha', 'cm²', 'cm2',
+        // Volume units (cubic)
+        'm³', 'm3', 'cm³', 'cm3', 'km³', 'km3',
+        // Time units
+        's', 'sec', 'min', 'h', 'hr', 'hrs',
+        // Speed units
+        'km/h', 'kmh', 'm/s', 'ms', 'mm/h', 'cm/s',
+        // Temperature units
+        '°C', '°F', '°K', '°R', '°Re', '°Ro', '°N', '°D',
+    ];
+
+    // Currency tokens (must stay in sync with convertCurrency)
+    const currencyUnits = [
+        'đồng', 'VND', 'vnđ', 'đ', 'USD', '$',
+    ];
+
+    const allUnits = Array.from(new Set([...measurementUnits, ...currencyUnits]));
+    if (allUnits.length === 0) return text;
+
+    const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const unitPattern = allUnits
+        .sort((a, b) => b.length - a.length)
+        .map(escapeRegex)
+        .join('|');
+
+    if (!unitPattern) {
+        return text;
+    }
+
+    // 1) Ranges with units/currency: "1-10m", "1 - 10 kg", "1-10 đồng"
+    const rangeRegex = new RegExp(`(\\d+)\\s*[-–—]\\s*(\\d+)\\s*(${unitPattern})\\b`, 'gi');
+    text = text.replace(rangeRegex, (match, num1, num2, unit) => {
+        const unitLower = unit.toLowerCase();
+        // For bare "đ" keep it attached to the number (10đ) so convertCurrency still matches
+        const sep = unitLower === 'đ' ? '' : ' ';
+        return `${num1} đến ${num2}${sep}${unit}`;
+    });
+
+    // 2) Fractions with units/currency: "1/10m", "1/10 kg", "1/10 đồng"
+    const fractionRegex = new RegExp(`(\\d+)\\s*[\\/:]\\s*(\\d+)\\s*(${unitPattern})\\b`, 'gi');
+    text = text.replace(fractionRegex, (match, num1, num2, unit) => {
+        const unitLower = unit.toLowerCase();
+        const sep = unitLower === 'đ' ? '' : ' ';
+        return `${num1} phần ${num2}${sep}${unit}`;
+    });
+
+    return text;
+}
+
+/**
  * Convert time expressions: 2 giờ 20 phút -> hai giờ hai mươi phút
  */
 function convertTime(text) {
@@ -273,6 +350,186 @@ function convertTime(text) {
     });
     
     return text;
+}
+
+/**
+ * Convert Roman numerals to Arabic digits.
+ * Examples: "IV" -> "4", "XII" -> "12", "thứ IV" -> "thứ 4"
+ * 
+ * Validates Roman numerals to avoid false positives (e.g., "IV" in "GIVEN" won't match).
+ * Supports unlimited range and handles both uppercase and lowercase.
+ * When config.LimitRomanNumerals === false: only convert numerals with value 1-30.
+ * When config.LimitRomanNumerals === true or config missing: no limit.
+ * @param {string} text - Input text
+ * @param {{ UnlimitedRomanNumerals?: boolean }} [config] - Optional config; UnlimitedRomanNumerals true = no limit
+ */
+function convertRomanNumerals(text, config) {
+    if (!text || typeof text !== 'string') {
+        return text;
+    }
+    const unlimitedRomanNumerals = config && config.UnlimitedRomanNumerals === true;
+
+    /**
+     * Convert a valid Roman numeral string to Arabic number
+     * @param {string} roman - Roman numeral string (e.g., "IV", "XII")
+     * @returns {number|null} - Arabic number or null if invalid
+     */
+    function romanToArabic(roman) {
+        const upperRoman = roman.toUpperCase();
+        const romanMap = {
+            'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000
+        };
+        
+        // Check all characters are valid Roman numeral letters
+        for (let char of upperRoman) {
+            if (!romanMap[char]) {
+                return null;
+            }
+        }
+        
+        let result = 0;
+        let i = 0;
+        
+        while (i < upperRoman.length) {
+            const current = romanMap[upperRoman[i]];
+            const next = i + 1 < upperRoman.length ? romanMap[upperRoman[i + 1]] : 0;
+            
+            // Subtractive notation: IV, IX, XL, XC, CD, CM
+            if (current < next) {
+                // Validate subtractive pairs
+                const validPairs = {
+                    'I': ['V', 'X'],
+                    'X': ['L', 'C'],
+                    'C': ['D', 'M']
+                };
+                
+                if (!validPairs[upperRoman[i]] || !validPairs[upperRoman[i]].includes(upperRoman[i + 1])) {
+                    return null; // Invalid subtractive notation
+                }
+                
+                result += next - current;
+                i += 2;
+            } else {
+                result += current;
+                i++;
+            }
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Validate Roman numeral follows proper rules
+     * @param {string} roman - Roman numeral string
+     * @returns {boolean} - True if valid
+     */
+    function isValidRomanNumeral(roman) {
+        const upperRoman = roman.toUpperCase();
+        
+        // Reject empty strings
+        if (!upperRoman || upperRoman.length === 0) {
+            return false;
+        }
+        
+        // Reject invalid characters
+        if (!/^[IVXLCDM]+$/i.test(roman)) {
+            return false;
+        }
+        
+        // Reject invalid sequences (more than 3 same letters in a row, except M)
+        // Patterns like IIII, VV, DD, etc. are invalid
+        if (/([IVXLCD])\1{3,}/.test(upperRoman)) {
+            return false;
+        }
+        
+        // Reject invalid double letters (VV, LL, DD)
+        if (/VV|LL|DD/.test(upperRoman)) {
+            return false;
+        }
+        
+        // Validate subtractive notation rules
+        // I can only precede V or X
+        // X can only precede L or C
+        // C can only precede D or M
+        // V, L, D cannot be used for subtraction
+        const invalidSubtractive = /I[^VX]|X[^LC]|C[^DM]|[VLD][IVXLCDM]/;
+        // But we need to allow valid subtractive pairs, so check more carefully
+        for (let i = 0; i < upperRoman.length - 1; i++) {
+            const current = upperRoman[i];
+            const next = upperRoman[i + 1];
+            const currentVal = { 'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000 }[current];
+            const nextVal = { 'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000 }[next];
+            
+            // If current < next, it's subtractive notation
+            if (currentVal < nextVal) {
+                // Validate subtractive pairs
+                const validPairs = {
+                    'I': ['V', 'X'],
+                    'X': ['L', 'C'],
+                    'C': ['D', 'M']
+                };
+                
+                if (!validPairs[current] || !validPairs[current].includes(next)) {
+                    return false;
+                }
+            }
+        }
+        
+        // Try to convert - if conversion fails, it's invalid
+        const arabic = romanToArabic(roman);
+        if (arabic === null || arabic <= 0) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // Match standalone Roman numerals only when surrounded by whitespace/punctuation or at string boundaries
+    // Pattern: (start of string OR whitespace/punctuation) + Roman numeral + (whitespace/punctuation OR end of string)
+    // This ensures we don't match Roman letters that are part of words (e.g., "x" in "xạo")
+    // Examples: " x " -> matches, "ngày x " -> matches, "xạo" -> doesn't match, "x ạo" -> matches
+    // Use capturing group for preceding character to check context
+    const romanNumeralRegex = /(^|[\s\W])([IVXLCDMivxlcdm]+)(?=[\s\W]|$)/g;
+    
+    return text.replace(romanNumeralRegex, (match, before, roman, offset, fullText) => {
+        // Additional validation: ensure "before" is not a word character (should be start, whitespace, or punctuation)
+        // This handles edge cases where Vietnamese characters might be matched by \W
+        if (before && /[\wà-ỹ]/.test(before)) {
+            return match; // Return original if preceded by word character
+        }
+        
+        // Check the character after the Roman numeral
+        const afterIndex = offset + match.length;
+        const afterChar = afterIndex < fullText.length ? fullText[afterIndex] : '';
+        
+        // If followed by a word character (letter/digit/Vietnamese), don't match (it's part of a word)
+        if (afterChar && /[\wà-ỹ]/.test(afterChar)) {
+            return match; // Return original if part of a word
+        }
+        
+        // Only consider as Roman numerals if all characters are uppercase
+        if (roman !== roman.toUpperCase()) {
+            return match; // Return original if not all uppercase
+        }
+        
+        // Validate that this is a real Roman numeral
+        if (!isValidRomanNumeral(roman)) {
+            return match; // Return original if invalid
+        }
+        
+        // Convert to Arabic number
+        const arabic = romanToArabic(roman);
+        if (arabic === null) {
+            return match; // Return original if conversion failed
+        }
+        // When LimitRomanNumerals is false: only convert when value is 1-30
+        if (!unlimitedRomanNumerals && (arabic < 1 || arabic > 30)) {
+            return match; // Leave unchanged
+        }
+
+        // Return the preceding character (if any) plus the converted Arabic number
+        return before + String(arabic);
+    });
 }
 
 /**
@@ -365,9 +622,20 @@ function convertDate(text) {
     });
     
     // MM/YYYY or MM-YYYY (month/year) - handle both with and without "tháng"
-    // IMPORTANT: Use negative lookahead to ensure this isn't part of a DD-MM-YYYY pattern
-    // Rule: If there is 1 "-" or 1 "/" and no "%" next to a number, read as "tháng [number] năm [number]"
-    text = text.replace(/(?:tháng\s+)?(\d{1,2})\s*[/-]\s*(\d{4})(?![\/-]\d)/g, (match, month, year, offset) => {
+    // IMPORTANT:
+    //  - Use negative lookahead to ensure this isn't part of a DD-MM-YYYY pattern
+    //  - Do NOT treat as a date if it's immediately followed by a letter/digit (e.g. unit/currency)
+    //    Example: "6/2024m" should NOT become "tháng sáu năm hai nghìn không trăm hai mươi bốn m"
+    // Rule: If there is 1 "-" or 1 "/" and no "%" next to a number, and the next non-space
+    //       character after the match is NOT a letter/digit, read as "tháng [number] năm [number]"
+    text = text.replace(/(?:tháng\s+)?(\d{1,2})\s*[/-]\s*(\d{4})(?![\/-]\d)/g, (match, month, year, offset, fullText) => {
+        // Check the character immediately after this match for context
+        const after = fullText.slice(offset + match.length);
+        const nextNonSpace = after.match(/\S/);
+        if (nextNonSpace && /[0-9A-Za-zÀ-ỹà-ỹ]/.test(nextNonSpace[0])) {
+            // Followed by a letter/number (likely unit/currency/etc.) -> keep original, not a pure month-year
+            return match;
+        }
         if (isValidMonth(month) && parseInt(year, 10) >= 1000 && parseInt(year, 10) <= 9999) {
             // Check if "tháng" was already in the match
             const hasThang = match.toLowerCase().includes('tháng');
@@ -697,11 +965,11 @@ function cleanWhitespace(text) {
  * @param {string} text - Raw Vietnamese text
  * @returns {string} Normalized text suitable for TTS
  */
-export function processVietnameseText(text) {
+export function processVietnameseText(text, config = null) {
     if (!text || typeof text !== 'string') {
         return '';
     }
-    
+
     const originalText = text;
     
     // Step 1: Normalize Unicode
@@ -713,42 +981,48 @@ export function processVietnameseText(text) {
     // Step 3: Normalize punctuation
     text = normalizePunctuation(text);
     
-    // Step 4: Convert year ranges (before other number conversions)
-    text = convertYearRange(text);
-    
-    // Step 5: Convert dates
-    text = convertDate(text);
-    
-    // Step 6: Convert times
-    text = convertTime(text);
-    
-    // Step 7: Convert ordinals
-    text = convertOrdinal(text);
-    
-    // Step 8: Remove thousand separators (dots) before currency and decimal conversion
+    // Step 4: Remove thousand separators (dots) before currency, decimals and range handling
     text = removeThousandSeparators(text);
     
-    // Step 9: Convert currency
+    // Step 5: Convert numeric ranges/fractions with units or currency
+    text = convertRangesWithUnitsAndCurrency(text);
+    
+    // Step 6: Convert year ranges (before other number conversions)
+    text = convertYearRange(text);
+    
+    // Step 7: Convert dates
+    text = convertDate(text);
+    
+    // Step 8: Convert times
+    text = convertTime(text);
+    
+    // Step 8.5: Convert Roman numerals to Arabic digits (before ordinals)
+    text = convertRomanNumerals(text, config);
+    
+    // Step 9: Convert ordinals
+    text = convertOrdinal(text);
+    
+    // Step 10: Convert currency
     text = convertCurrency(text);
     
-    // Step 10: Convert percentages
+    // Step 11: Convert percentages
     text = convertPercentage(text);
     
-    // Step 11: Convert phone numbers
+    // Step 12: Convert phone numbers
     text = convertPhoneNumber(text);
     
-    // Step 12: Convert decimals (before standalone numbers, after currency)
+    // Step 13: Convert decimals (before standalone numbers, after currency)
     // In Vietnamese, commas are decimal separators
     text = convertDecimal(text);
     
-    // Step 13: Convert measurement units (before numbers are converted to words)
+    // Step 14: Convert measurement units (before numbers are converted to words)
     // This runs before convertStandaloneNumbers so it can match digits before units
     text = convertMeasurementUnits(text);
     
-    // Step 14: Convert remaining standalone numbers
+    // Step 15: Convert remaining standalone numbers
     text = convertStandaloneNumbers(text);
     
-    // Step 15: Clean whitespace
+    // Step 16: Clean whitespace
     text = cleanWhitespace(text);
     
     // Only log if text actually changed
@@ -763,7 +1037,7 @@ export function processVietnameseText(text) {
 }
 
 export { numberToWords, convertDecimal, convertPercentage, convertCurrency, 
-         convertTime, convertDate, convertYearRange, convertOrdinal, 
+         convertTime, convertDate, convertYearRange, convertOrdinal, convertRomanNumerals,
          convertStandaloneNumbers, convertMeasurementUnits, convertPhoneNumber, normalizeUnicode,
          removeSpecialChars, normalizePunctuation, cleanWhitespace };
 

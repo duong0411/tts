@@ -1,6 +1,6 @@
 # NGHI-TTS
 
-A browser-based Text-to-Speech and Speech Recognition application powered by Piper TTS, Sherpa-ONNX, and ONNX Runtime Web. Generate high-quality speech and transcribe audio directly in your browser without requiring a server for inference. Supports **Vietnamese** (home page), **other languages** (English, Indonesian), and **ASR** (Automatic Speech Recognition) on separate pages. Live demo: https://text2speech.work.
+A browser-based Text-to-Speech and Speech Recognition application powered by Piper TTS, Sherpa-ONNX, and ONNX Runtime Web. Generate high-quality speech and transcribe audio directly in your browser without requiring a server for inference. Supports **Vietnamese** (home page), **other languages** (English, Indonesian), and **ASR** (Automatic Speech Recognition) on separate pages. Live demo: https://nghitts.app.
 
 ## Features
 

@@ -426,3 +426,4 @@ This project is:
 - Inspired by [piper-tts-web-demo](https://clowerweb.github.io/piper-tts-web-demo/) by clowerweb
 - Uses [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) for browser-based TTS inference
 - Uses [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx) for browser-based ASR with Silero VAD
+# duongtts

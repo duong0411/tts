@@ -1,8 +1,28 @@
-name = "tts-piper"
+name = "duongtts"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
 
 [[r2_buckets]]
 binding = "piper"
 bucket_name = "tts-bucket"
+
+# ── Cloudflare D1 (SQLite database) ─────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "tts-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# ── Cloudflare KV (session + OAuth state storage) ───────────────────────────
+[[kv_namespaces]]
+binding = "SESSION_STORE"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# ── Environment Variables ────────────────────────────────────────────────────
+# Set these as secrets: wrangler secret put GOOGLE_CLIENT_ID
+# [vars]
+
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
 

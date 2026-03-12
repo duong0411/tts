@@ -427,3 +427,4 @@ This project is:
 - Uses [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) for browser-based TTS inference
 - Uses [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx) for browser-based ASR with Silero VAD
 # duongtts
+# duongtts

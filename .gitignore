@@ -28,6 +28,7 @@ dist-ssr
 
 dist/*
 .wrangler/*
+public/tts-model/*
 scripts/*
 bak/*
 upload-model-web/*

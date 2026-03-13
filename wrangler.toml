@@ -4,19 +4,17 @@ compatibility_date = "2024-01-01"
 
 [[r2_buckets]]
 binding = "piper"
-bucket_name = "tts-bucket"
+bucket_name = "voice-models"
 
 # ── Cloudflare D1 (SQLite database) ─────────────────────────────────────────
 [[d1_databases]]
 binding = "DB"
 database_name = "tts-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
-
+database_id = "3e817e4a-efb8-40b2-973f-06e9795dc36c"
 # ── Cloudflare KV (session + OAuth state storage) ───────────────────────────
 [[kv_namespaces]]
 binding = "SESSION_STORE"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
-
+id = "721e0dc9f1074968874081c89738e322"
 # ── Environment Variables ────────────────────────────────────────────────────
 # Set these as secrets: wrangler secret put GOOGLE_CLIENT_ID
 # [vars]

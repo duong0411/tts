@@ -5,28 +5,36 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "wrangler pages dev --proxy 5173 --port 8788",
+    "db:init": "wrangler d1 execute tts-db --local --file=schema.sql",
+    "db:migrate": "wrangler d1 execute tts-db --local --file=migrations/001_add_password_hash.sql",
     "format": "prettier --write piper-tts-web-demo",
     "build": "vite build",
     "lint": "eslint piper-tts-web-demo",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "batch-tts": "node scripts/batch-tts.mjs"
   },
   "dependencies": {
     "lucide-vue-next": "^0.539.0",
     "onnxruntime-web": "^1.22.0",
     "phonemizer": "file:phonemizer-1.2.2.tgz",
     "sherpa-onnx": "^1.12.25",
-    "tailwindcss": "^4.1.11",
+    "tailwindcss": "^3.4.17",
     "vue": "^3.5.18",
     "vue-router": "^5.0.2"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260305.1",
     "@eslint/js": "^9.33.0",
-    "@tailwindcss/vite": "^4.1.11",
-    "@vitejs/plugin-vue": "^6.0.1",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "autoprefixer": "^10.4.20",
     "busboy": "^1.6.0",
     "eslint": "^9.33.0",
     "eslint-plugin-vue": "^10.4.0",
+    "playwright": "^1.49.0",
+    "postcss": "^8.4.49",
     "prettier": "^3.6.2",
-    "vite": "^7.1.1"
+    "vite": "^5.4.11",
+    "wrangler": "^4.70.0"
   }
 }

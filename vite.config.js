@@ -3,7 +3,6 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 
 import { defineConfig } from "vite";
-import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,8 +11,12 @@ const __dirname = path.dirname(__filename);
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
+  server: {
+    watch: {
+      usePolling: true,
+    },
+  },
   plugins: [
-    tailwindcss(), 
     vue(),
     {
       name: 'onnx-wasm-plugin',

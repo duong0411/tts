@@ -1,22 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { PlayCircleIcon } from 'lucide-vue-next';
 
 const emit = defineEmits(['text-click']);
-
 const demos = ref([]);
 const loading = ref(true);
 
-// Format speaker name from filename
-const formatSpeakerName = (filename) => {
-  // Remove _demo suffix and split by underscore
-  const name = filename.replace('_demo', '').replace('.txt', '').replace('.wav', '');
-  // Convert to title case: my_tam -> My Tam
-  return name.split('_').map(word => 
-    word.charAt(0).toUpperCase() + word.slice(1)
-  ).join(' ');
-};
-
-// Load demo data
 const loadDemos = async () => {
   loading.value = true;
   const demoFiles = [
@@ -25,104 +14,76 @@ const loadDemos = async () => {
     { filename: 'my_tam_demo', speaker: 'Mỹ Tâm' },
     { filename: 'ngoc_huyen_moi_demo', speaker: 'Ngọc Huyền (mới)' },
     { filename: 'ngoc_ngan_demo', speaker: 'Ngọc Ngạn' },
-    { filename: 'tran_thanh_demo', speaker: 'Trấn Thành' },
-    { filename: 'viet_thao_demo', speaker: 'Việt Thảo' },
-    { filename: 'minh_quang_demo', speaker: 'Minh Quang' },
-    { filename: 'mai_phuong_demo', speaker: 'Mai Phương' },
-    { filename: 'my_tam_real_demo', speaker: 'Mỹ Tâm Real' },
-    { filename: 'chieu_thanh_demo', speaker: 'Chiếu Thành' },
-    { filename: 'lac_phi_demo', speaker: 'Lạc Phi' },
-    { filename: 'thanh_phuong_viettel_demo', speaker: 'Thanh Phương Viettel' },
-	{ filename: 'phuong_trang_demo', speaker: 'Phương Trang' },
-	{ filename: 'thien_tam_demo', speaker: 'Thiện Tâm' },
-	{ filename: 'ban_mai_demo', speaker: 'Ban Mai' },
-	{ filename: 'tai_an_demo', speaker: 'Tài An' },
-	{ filename: 'minh_khang_demo', speaker: 'Minh Khang' },
   ];
 
-  try {
-    const demoPromises = demoFiles.map(async ({ filename, speaker }) => {
+  const results = await Promise.all(
+    demoFiles.map(async ({ filename, speaker }) => {
       try {
-        const response = await fetch(`/demo/${filename}.txt`);
-        if (!response.ok) throw new Error(`Failed to load ${filename}.txt`);
-        const text = await response.text();
-        return {
-          text: text.trim(),
-          speaker: speaker,
-          audioUrl: `/demo/${filename}.wav`
-        };
-      } catch (error) {
-        console.error(`Error loading ${filename}:`, error);
-        return null;
-      }
-    });
-
-    const results = await Promise.all(demoPromises);
-    demos.value = results.filter(demo => demo !== null);
-  } catch (error) {
-    console.error('Error loading demos:', error);
-  } finally {
-    loading.value = false;
-  }
+        const res = await fetch(`/demo/${filename}.txt`);
+        if (!res.ok) throw new Error();
+        const text = await res.text();
+        return { text: text.trim(), speaker, audioUrl: `/demo/${filename}.wav` };
+      } catch { return null; }
+    })
+  );
+  demos.value = results.filter(Boolean);
+  loading.value = false;
 };
 
-const handleTextClick = (demoText) => {
-  emit('text-click', demoText);
-};
-
-onMounted(() => {
-  loadDemos();
-});
+const handleTextClick = (t) => emit('text-click', t);
+onMounted(loadDemos);
 </script>
 
 <template>
-  <div class="mt-8 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 overflow-hidden">
-    <div class="p-6">
-      <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-        Demo Samples
-      </h2>
-      
-      <div v-if="loading" class="flex items-center justify-center py-8">
-        <div class="animate-spin w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full"></div>
-        <span class="ml-3 text-gray-600 dark:text-gray-400">Loading demos...</span>
+  <div class="vs-card">
+    <!-- Header -->
+    <div class="vs-card-header demo-header">
+      <div>
+        <h2 class="demo-title">Voice Samples</h2>
+        <p class="demo-desc">Click vào text để dùng trong ô nhập · Nghe thử từng giọng</p>
+      </div>
+      <span class="vs-badge" v-if="demos.length">{{ demos.length }} giọng</span>
+    </div>
+
+    <!-- Body -->
+    <div class="vs-card-body">
+      <!-- Loading -->
+      <div v-if="loading" class="demo-loading">
+        <div class="demo-spinner"></div>
+        <span>Đang tải...</span>
       </div>
 
-      <div v-else-if="demos.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
-        No demo samples available
+      <!-- Empty -->
+      <div v-else-if="demos.length === 0" class="demo-empty">
+        Chưa có demo mẫu nào
       </div>
 
-      <div v-else class="overflow-x-auto">
-        <table class="w-full border-collapse table-fixed">
+      <!-- Table -->
+      <div v-else class="demo-table-wrap">
+        <table class="demo-table">
           <thead>
-            <tr class="border-b-2 border-gray-200 dark:border-gray-700">
-              <th class="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-2/5">Text</th>
-              <th class="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-1/5">Speaker</th>
-              <th class="text-left py-3 px-4 font-semibold text-gray-700 dark:text-gray-300 w-2/5">Sample</th>
+            <tr>
+              <th>Nội dung</th>
+              <th>Giọng</th>
+              <th>Nghe thử</th>
             </tr>
           </thead>
           <tbody>
-            <tr 
-              v-for="(demo, index) in demos" 
-              :key="index"
-              class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+            <tr
+              v-for="(demo, i) in demos"
+              :key="i"
+              class="demo-row"
+              @click="handleTextClick(demo.text)"
             >
-              <td 
-                class="py-4 px-4 cursor-pointer text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors break-words"
-                @click="handleTextClick(demo.text)"
-                :title="'Click to use this text'"
-              >
-                {{ demo.text }}
+              <td class="demo-text-cell">
+                <PlayCircleIcon class="demo-play-icon" />
+                <span>{{ demo.text }}</span>
               </td>
-              <td class="py-4 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                {{ demo.speaker }}
+              <td>
+                <span class="vs-badge">{{ demo.speaker }}</span>
               </td>
-              <td class="py-4 px-4">
-                <audio 
-                  :src="demo.audioUrl" 
-                  controls
-                  class="w-full min-w-[300px]"
-                  preload="metadata"
-                >
+              <td class="demo-audio-cell" @click.stop>
+                <audio :src="demo.audioUrl" controls preload="metadata" class="demo-audio">
                   Your browser does not support the audio element.
                 </audio>
               </td>
@@ -134,3 +95,96 @@ onMounted(() => {
   </div>
 </template>
 
+<style scoped>
+.demo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.demo-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.demo-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.125rem;
+}
+
+.demo-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3rem 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.demo-spinner {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--card-border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.demo-empty {
+  text-align: center;
+  padding: 3rem 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.demo-table-wrap { overflow-x: auto; margin: -0.25rem; }
+.demo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.demo-table thead th {
+  text-align: left;
+  padding: 0 0.75rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-bottom: 1.5px solid var(--card-border);
+}
+
+.demo-row {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.demo-row:hover { background: var(--nav-hover-bg); }
+.demo-row:hover .demo-play-icon { opacity: 1; }
+
+.demo-row td { padding: 0.875rem 0.75rem; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
+.demo-row:last-child td { border-bottom: none; }
+
+.demo-text-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  max-width: 340px;
+}
+.demo-row:hover .demo-text-cell { color: var(--accent); }
+
+.demo-play-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.demo-audio-cell { min-width: 260px; }
+.demo-audio { width: 100%; height: 32px; }
+</style>

@@ -55,7 +55,7 @@ function previewText(text, maxLen = 80) {
 }
 
 function langLabel(lang) {
-  const labels = { vi: 'Tiếng Việt', en: 'English', id: 'Indonesia' };
+  const labels = { vi: 'Tiếng Việt' };
   return labels[lang] || lang;
 }
 

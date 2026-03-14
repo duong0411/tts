@@ -156,7 +156,7 @@ export class PiperTTS {
     this.phonemeIdMap = null;
   }
 
-  static async from_pretrained(modelPath, configPath) {
+  static async from_pretrained(modelPath, configPath, onProgress = null) {
     try {
       // Import ONNX Runtime Web and caching utility
       const ort = await import('onnxruntime-web');
@@ -165,9 +165,9 @@ export class PiperTTS {
       // Use local files in public directory with threading enabled
       ort.env.wasm.wasmPaths = `${import.meta.env.BASE_URL}onnx-runtime/`;
 
-      // Load model and config
+      // Load model (big file → track progress) and config (small → no progress)
       const [modelResponse, configResponse] = await Promise.all([
-        cachedFetch(modelPath),
+        cachedFetch(modelPath, onProgress ? (r) => onProgress(r * 0.9) : null),
         cachedFetch(configPath)
       ]);
 
@@ -177,12 +177,14 @@ export class PiperTTS {
       ]);
 
       // Create ONNX session with WASM execution provider
+      if (onProgress) onProgress(0.92);
       const session = await ort.InferenceSession.create(modelBuffer, {
         executionProviders: [{
           name: 'wasm',
           simd: true
         }]
       });
+      if (onProgress) onProgress(1);
       
       return new PiperTTS(voiceConfig, session);
     } catch (error) {

@@ -15,7 +15,12 @@ async function initializeModel(modelName = null) {
     const modelPath = `/api/model/${encodedModel}.onnx`;
     const configPath = `/api/model/${encodedModel}.onnx.json`;
     
-    tts = await PiperTTS.from_pretrained(modelPath, configPath);
+    // Progress callback → post to main thread
+    const onProgress = (ratio) => {
+      self.postMessage({ status: "progress", progress: ratio });
+    };
+    
+    tts = await PiperTTS.from_pretrained(modelPath, configPath, onProgress);
     
     // Get available speakers
     const speakers = tts.getSpeakers();

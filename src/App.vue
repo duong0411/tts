@@ -50,7 +50,7 @@ async function handleLogout() {
       <nav class="sidebar-nav">
         <p class="nav-section-label">Tools</p>
         <router-link to="/tts" class="nav-item" :class="{ active: route.path === '/tts' }">
-          <MessageSquareText class="w-4 h-4" /><span>TTS Vietnamese</span>
+          <MessageSquareText class="w-4 h-4" /><span>Listen to fun podcasts for free.</span>
         </router-link>
 
         <!-- Admin only -->

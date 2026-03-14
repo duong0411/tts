@@ -56,19 +56,11 @@ const restartWorker = (modelName = null) => {
   isPlaying.value = false;
   currentChunkIndex.value = -1;
 
-  const progressInterval = setInterval(() => {
-    if (loadingProgress.value < 90) {
-      loadingProgress.value += Math.random() * 5;
-      if (loadingProgress.value > 90) loadingProgress.value = 90;
-    }
-  }, 200);
-
   worker.value = new Worker(new URL("../workers/tts-worker.js", import.meta.url), { type: "module" });
   worker.value.addEventListener("message", onMessageReceived);
   worker.value.addEventListener("error", onErrorReceived);
   const modelToLoad = modelName || selectedModel.value;
   worker.value.postMessage({ type: 'init', model: modelToLoad });
-  worker.value._progressInterval = progressInterval;
 };
 
 const setCurrentChunkIndex = (i) => { currentChunkIndex.value = i; };
@@ -149,14 +141,15 @@ const handleModelChange = (modelName) => {
 
 const onMessageReceived = ({ data }) => {
   switch (data.status) {
+    case "progress":
+      loadingProgress.value = Math.round((data.progress ?? 0) * 100);
+      break;
     case "ready":
-      if (worker.value?._progressInterval) clearInterval(worker.value._progressInterval);
       loadingProgress.value = 100;
       setTimeout(() => { status.value = "ready"; loadingProgress.value = 0; }, 300);
       voices.value = data.voices;
       break;
     case "error":
-      if (worker.value?._progressInterval) clearInterval(worker.value._progressInterval);
       loadingProgress.value = 0; status.value = "error"; error.value = data.data;
       break;
     case "stream":

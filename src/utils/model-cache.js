@@ -132,49 +132,65 @@ class ModelCache {
 }
 
 // Cached fetch function for model files
-export async function cachedFetch(url) {
+// onProgress(ratio) — ratio is 0..1 representing download progress
+export async function cachedFetch(url, onProgress = null) {
   const cache = new ModelCache();
-  
-  // Try to get from cache first
-  const cached = await cache.get(url);
-  
-  // Fetch from network to check if content has changed
+
+  // ── 1) Cache-first: return immediately if valid ──
+  try {
+    const cached = await cache.get(url);
+    if (cached) {
+      if (onProgress) onProgress(1);
+      return new Response(cached.data);
+    }
+  } catch (err) {
+    console.warn('Cache read failed, will fetch from network:', err);
+  }
+
+  // ── 2) Fetch from network with streaming progress ──
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
-  // Get the new file data
-  const data = await response.arrayBuffer();
-  
-  // Calculate hash of the new content
-  const newContentHash = await cache.calculateContentHash(data);
-  
-  // Check if we have cached data and if content has changed
-  if (cached) {
-    if (cached.contentHash === newContentHash) {
-      // Content is the same - use cached version
-      return new Response(cached.data, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers
-      });
-    } else {
-      // Content has changed - update cache with new content
-      console.log(`🔄 Model file changed: ${url} - updating cache`);
-      await cache.set(url, data, newContentHash);
-    }
-  } else {
-    // No cache - store new content
-    await cache.set(url, data, newContentHash);
+  const contentLength = Number(response.headers.get('Content-Length')) || 0;
+  const reader = response.body?.getReader();
+
+  // Fallback: if ReadableStream not supported (rare), use arrayBuffer directly
+  if (!reader) {
+    const data = await response.arrayBuffer();
+    try { await cache.set(url, data, null); } catch (_) { /* ignore cache write errors */ }
+    if (onProgress) onProgress(1);
+    return new Response(data);
   }
-  
-  // Return the new response with the data
-  return new Response(data, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers
-  });
+
+  const chunks = [];
+  let received = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    if (onProgress && contentLength) {
+      onProgress(Math.min(received / contentLength, 1));
+    }
+  }
+
+  // Merge chunks into a single ArrayBuffer
+  const merged = new Uint8Array(received);
+  let pos = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, pos);
+    pos += chunk.length;
+  }
+  const data = merged.buffer;
+
+  // Store in cache for next time (fire-and-forget)
+  try { await cache.set(url, data, null); } catch (_) { /* ignore */ }
+  if (onProgress) onProgress(1);
+
+  return new Response(data);
 }
 
 export default ModelCache;

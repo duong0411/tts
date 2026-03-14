@@ -42,8 +42,9 @@ async function waitForAuth() {
 router.beforeEach(async (to) => {
   const auth = await waitForAuth();
 
-  // Already logged in → skip login page
+  // Already logged in → skip login / home page
   if (to.meta.isAuth && auth.state.user) return '/tts';
+  if (to.path === '/' && auth.state.user) return '/tts';
 
   // Not logged in → go to login with redirect param
   if (to.meta.requiresAuth && !auth.state.user) {
